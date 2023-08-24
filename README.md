@@ -1,1 +1,1 @@
-# semaglutide-study
+# A study on the effect of GLP-1 antagonis based injections of semaglutide on mental health and cognition
