@@ -67,7 +67,7 @@ screener_parsing <- function(file,
     comp_1_dat_subj <- raw_dat[[subj]] %>%
       select(c(prolific_id, age:diabetes_other)) %>% 
       summarise(across(.fns=~na.omit(unique(.)))) %>%
-      as.tibble() %>%
+      as_tibble() %>%
       mutate(diabetes = ifelse(!"diabetes" %in% names(.), "0", 
                                ifelse(diabetes == 0, "0", diabetes))) %>% 
       mutate(diabetes_other = ifelse(!diabetes_other, NA, na.omit(raw_dat[[subj]]$diabetes_other_text)))
@@ -104,7 +104,7 @@ screener_parsing <- function(file,
     comp_2_dat_subj <- raw_dat[[subj]] %>%
       select(c(prolific_id, glp_treatment, medication, neurological, psych_neurdev, chronic_disease)) %>% 
       summarise(across(.fns=~max(.x, na.rm=TRUE))) %>%
-      as.tibble()
+      as_tibble()
     
     # GLP follow up questions
     comp_2_dat_subj %<>% 
@@ -449,21 +449,22 @@ screener_parsing <- function(file,
 
 
   
-  ### TIBBLE 3: Prolific meta data -------------------------------------------------------------------------------------
+  ### TIBBLE 2: Prolific meta data -------------------------------------------------------------------------------------
   # Contains Prolific meta data
   
   # Only approved participants
   meta_data <- raw_meta_dat %>%
     filter(Status == "APPROVED") %>%
     select(Participant.id, Age, Sex, Ethnicity.simplified, Country.of.residence, Started.at) %>%
-    as.tibble() %>% 
+    as_tibble() %>% 
     rename(prolific_id = Participant.id, age = Age, sex = Sex, 
            ethnicity = Ethnicity.simplified, residence = Country.of.residence, 
            screening_day = Started.at) %>%
     mutate(screening_day = as_datetime(screening_day)) %>%
     filter(prolific_id %in% main_data$prolific_id)
   
-  ### OUTPUT 
+  ### OUTPUT -------------------------------------------------------------------------------------------------
+  
   return(list("screening_dat" = main_data, 
               "prolific_dat" = meta_data))
   

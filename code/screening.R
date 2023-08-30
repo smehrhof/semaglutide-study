@@ -30,8 +30,8 @@ data_files <- list.files(path = here::here("data/raw_data/screening"),
 meta_files <- list.files(path = here::here("data/raw_data/screening"), 
                          pattern = ".csv", full.names = TRUE)
 
-screening_dat <- screener_parsing(file = data_files, 
-                                  meta_file = meta_files, 
+screening_dat <- screener_parsing(file = data_files[5:6], 
+                                  meta_file = meta_files[5:6], 
                                   display_progress = TRUE)
 
 # (2) Exclusion ---------------------------------------------------
@@ -46,7 +46,7 @@ screening_dat$screening_dat %>%
 screening_dat$screening_dat %<>%
   add_column(exclusion = case_when(
     .$english == "A1/A2" | .$english == "B1" ~ 1,
-    grepl("Epilepsy|Multiple Sclerosis|Traumatic brain injury|
+    grepl("Multiple Sclerosis|Traumatic brain injury|
           Stroke|Parkinson's disease", 
           .$neurological_condition, 
           ignore.case = TRUE) ~ 1,
@@ -58,6 +58,15 @@ screening_dat$screening_dat %<>%
     .default = 0
   ))
 
+# if subj has epilepsy, check what medication they are on 
+screening_dat$screening_dat %>% 
+  add_column(epilepsy_check = case_when(
+    grepl("Epilepsy", 
+          .$neurological_condition, 
+          ignore.case = TRUE) ~ 1
+  )) %>% 
+  filter(!is.na(epilepsy_check)) %>%
+  select(prolific_id, neurological_condition, medication, other_medication, other_medication_type)
 
 # (3) Identify treatment and control group ---------------------------------------------------
 
@@ -105,8 +114,8 @@ screening_dat$screening_dat %>%
 # (4) Adjust data based on Prolific messages ---------------------------------------------------
 
 ## Subject 63f226e602d56e2ab3623b2f
-# by chat reported to suffers from anxiety 
- 
+# by chat reported to suffers from anxiety and made a mistake in IPAQ
+
 screening_dat$screening_dat %<>% 
   mutate(psych_neurdev = ifelse(prolific_id == "63f226e602d56e2ab3623b2f", 
                                 1, psych_neurdev)) %>%
@@ -124,6 +133,9 @@ screening_dat$screening_dat %<>%
                                   "7", ipaq_5)) %>% 
   mutate(ipaq_6 = ifelse(prolific_id == "63f226e602d56e2ab3623b2f", 
                                   "2:0", ipaq_6)) %>%
+  
+  ## Subject 5e649c198b69732234df7db8
+  # by chat reported to have made a mistake in IPAQ
   mutate(ipaq_1 = ifelse(prolific_id == "5e649c198b69732234df7db8", 
                                   "None", ipaq_1)) %>%
   mutate(ipaq_2 = ifelse(prolific_id == "5e649c198b69732234df7db8", 
@@ -147,16 +159,17 @@ screening_dat$screening_dat %>%
 
 # => message for clarification when they complete main testing
 
-screening_dat$screening_dat %>% 
-  mutate(across(height_cm:bmi, case_when(is.infinite(bmi) ~ NA,
+screening_dat$screening_dat %<>% 
+  rowwise() %>%
+  mutate(across(height_cm:bmi, ~ case_when(is.infinite(bmi) ~ NA,
                                          is.nan(bmi) ~ NA,
                                          bmi <= 18.5 ~ NA, 
                                          bmi >= 150 ~ NA, 
-                                         height > 240 ~ NA,
-                                         height < 140 ~ NA,
-                                         weight < 30 ~ NA,
-                                         weight > 400 ~ NA,
-                                          .default = .))) 
+                                         height_cm > 240 ~ NA,
+                                         height_cm < 140 ~ NA,
+                                         weight_kg < 30 ~ NA,
+                                         weight_kg > 400 ~ NA,
+                                        .default = .))) 
 
 
 # IPAQ
@@ -219,6 +232,7 @@ screening_dat$screening_dat %>%
                                                                            weekdays(Sys.Date()+1:7)) - 1),
                                    .default = NA
   ))
+
 
 
 
