@@ -66,7 +66,7 @@ screener_parsing <- function(file,
   for(subj in comp_1_id){
     comp_1_dat_subj <- raw_dat[[subj]] %>%
       select(c(prolific_id, age:diabetes_other)) %>% 
-      summarise(across(.fns=~na.omit(unique(.)))) %>%
+      summarise(across(c(prolific_id, age:diabetes_other), .fns=~na.omit(unique(.)))) %>%
       as_tibble() %>%
       mutate(diabetes = ifelse(!"diabetes" %in% names(.), "0", 
                                ifelse(diabetes == 0, "0", diabetes))) %>% 
@@ -139,14 +139,20 @@ screener_parsing <- function(file,
                                                    NA),
                                             NA) }, 
         schedule_glp = { ifelse(.$glp_treatment == "Current", 
-                                na.omit(raw_dat[[subj]]["glp_schedule"])[1,1], 
+                                { ifelse(.$prolific_id == "63d3de5c9b5d8855b1c74588", 
+                                         "Other", 
+                                         na.omit(raw_dat[[subj]]["glp_schedule"])[1,1]) },
                                 NA) },
-        schedule_glp_other = { ifelse(.$glp_treatment == "Current", 
-                                      ifelse(na.omit(raw_dat[[subj]]["glp_schedule_other"]), 
-                                             na.omit(raw_dat[[subj]]$glp_schedule_other_text), 
-                                             NA),
-                                      NA) }, 
         .after = "glp_treatment") %>% 
+      add_column(
+        schedule_glp_other = { ifelse(.$schedule_glp == "Other", 
+                                      na.omit(raw_dat[[subj]]["responses"])[5,] %>% 
+                                        str_replace_all('glp_schedule', '') %>% 
+                                        str_replace_all('other', '') %>% 
+                                        str_replace_all('_text', '') %>% 
+                                        str_replace_all('[[:punct:]]', ''),
+                                     NA) },
+        .after = "schedule_glp") %>% 
       add_column(
         injection_day_glp = { ifelse(.$schedule_glp == "Weekly", 
                                      na.omit(raw_dat[[subj]]["glp_injection_day"])[1,1], 
@@ -354,7 +360,7 @@ screener_parsing <- function(file,
       add_column(
         prolific_id = { raw_dat[[subj]] %>%
             select(prolific_id) %>% 
-            summarise(across(.fns=~na.omit(unique(.x)))) %>% 
+            summarise(across(prolific_id, .fns=~na.omit(unique(.x)))) %>% 
             .[1,1]
         },
         .before = "ipaq_1"

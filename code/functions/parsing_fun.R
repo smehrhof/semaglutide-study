@@ -1,31 +1,6 @@
 ########################################################################################################################
 ############################---------------- PARSING SCREENER DATA FUNCTION ----------------############################
 ########################################################################################################################
-
-# Set working directory
-here::i_am("github/semaglutide-study/code/functions/parsing_fun.R")
-setwd(here::here())
-
-file <- list.files(path = here::here("data/raw_data/main/session_2"), 
-                         pattern = ".txt", full.names = TRUE)
-
-doses_file <- list.files(path = here::here("data/raw_data/main"), 
-                   pattern = "doses.csv", full.names = TRUE)
-
-meta_file <- list.files(path = here::here("data/raw_data/main/session_2"), 
-                        pattern = ".csv", full.names = TRUE)
-
-s2_data <- parsing(file = file, 
-                   meta_file = meta_file, 
-                   doses_file = doses_file, 
-                   session = "s2", 
-                   display_progress = TRUE)
-
-s1_data$demographic_dat
-
-# TO DO 
-# exclude 60ff243a844cae10907dfd18
-# exclude 64415cccab771017a37d3d93
   
 ## Parsing data from screening -----------------------------------------
 # @ file: vector of relative path(s) to .txt data file(s) or existing R object
@@ -134,17 +109,20 @@ parsing <- function(file,
 
       
         # Local time big fix
-        if(comp_1_dat_subj$prolific_id %in% bug_fix_ids){
-          comp_1_dat_subj %<>% 
-            mutate(time_response = {if(raw_dat[[subj]] %>% 
-                                       select(responses) %>% 
-                                       na.omit() %>% slice_tail(n = 1) %>% 
-                                       str_detect(., '"time_pm"')){
-              # convert to pm on 24:00
-              format((strptime(paste(time_response, "pm"), "%I:%M %p")), format = "%H:%M")
-            }
-            })
-        }
+      if(comp_1_dat_subj$prolific_id %in% bug_fix_ids){
+        comp_1_dat_subj %<>% 
+          mutate(time_response = {if(raw_dat[[subj]] %>% 
+                                     select(responses) %>% 
+                                     na.omit() %>% slice_tail(n = 1) %>% 
+                                     str_detect(., '"time_pm"') & 
+                                     !str_starts(.$time_response, "00")){
+            # convert to pm on 24:00
+            format((strptime(paste(time_response, "pm"), "%I:%M %p")), format = "%H:%M")
+          } else {
+            time_response
+          }
+          })
+      }
 
       # GLP follow up questions
       comp_1_dat_subj %<>% 
@@ -263,7 +241,7 @@ parsing <- function(file,
       
       # meta data
       comp_2_dat_meta_subj <- tibble(prolific_id = raw_dat[[subj-1]] %>%
-                                       select(prolific_id) %>%
+                                       .$prolific_id %>%
                                        unique(), 
                                      game_id = raw_dat[[subj]]$subjID,
                                      start_time = raw_dat[[subj]]$date[1] %>% as_datetime(),
@@ -313,7 +291,7 @@ parsing <- function(file,
         mutate(across(trial_type:goal_clicks, ~na_if(., 999))) %>% 
         add_column(
           prolific_id = raw_dat[[subj-1]] %>%
-            select(prolific_id) %>%
+            .$prolific_id %>%
             unique(),
           .before = "phase"
         )

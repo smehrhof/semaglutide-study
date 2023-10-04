@@ -20,7 +20,7 @@ source("github/semaglutide-study/code/functions/helper_funs.R")
 source("github/semaglutide-study/code/functions/screener_parsing_fun.R")
 
 # load required packages
-librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl)
+librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl, readxl)
 
 
 # (1) Parse data ---------------------------------------------------
@@ -30,17 +30,30 @@ data_files <- list.files(path = here::here("data/raw_data/screening"),
 meta_files <- list.files(path = here::here("data/raw_data/screening"), 
                          pattern = ".csv", full.names = TRUE)
 
-screening_dat <- screener_parsing(file = data_files[5:6], 
-                                  meta_file = meta_files[5:6], 
+screening_dat <- screener_parsing(file = data_files, 
+                                  meta_file = meta_files, 
                                   display_progress = TRUE)
 
 # (2) Exclusion ---------------------------------------------------
-
+ 
 # Neurological condition - any severe disorders? 
 screening_dat$screening_dat %>%
   filter(neurological == 1) %>% 
   select(prolific_id, neurological_condition, neurological_condition_other) %>% 
-  print(n = Inf)
+  print(n = Inf, width = Inf)
+
+# If subject has epilepsy, check if they are medicated
+screening_dat$screening_dat %>% 
+  add_column(epilepsy_check = case_when(
+    grepl("Epilepsy", 
+          .$neurological_condition, 
+          ignore.case = TRUE) ~ 1
+  )) %>% 
+  filter(!is.na(epilepsy_check)) %>%
+  select(prolific_id, neurological_condition, medication, other_medication, other_medication_type) %>% 
+  print(n = Inf, width = Inf)
+
+# All excluded except for 5db8a4f15f7e1a000a20d09c and 614c6a6334c83a831c18dd06
 
 # Exclude subjects with English level < B2 and severe neurological disorders
 screening_dat$screening_dat %<>%
@@ -55,22 +68,16 @@ screening_dat$screening_dat %<>%
           seziers|Cataplexy|Conversion disorder|FNES|Fibromyalgia", 
           .$neurological_condition_other, 
           ignore.case = TRUE) ~ 1,
+    grepl("Epilepsy", 
+          .$neurological_condition, 
+          ignore.case = TRUE) & 
+     !.$prolific_id %in% c("5db8a4f15f7e1a000a20d09c", "614c6a6334c83a831c18dd06") ~ 1,
     .default = 0
   ))
 
-# if subj has epilepsy, check what medication they are on 
-screening_dat$screening_dat %>% 
-  add_column(epilepsy_check = case_when(
-    grepl("Epilepsy", 
-          .$neurological_condition, 
-          ignore.case = TRUE) ~ 1
-  )) %>% 
-  filter(!is.na(epilepsy_check)) %>%
-  select(prolific_id, neurological_condition, medication, other_medication, other_medication_type)
-
 # (3) Identify treatment and control group ---------------------------------------------------
 
-# Add residence (US or UK)
+# Add residence (US or UK) and screening date
 screening_dat$screening_dat %<>% left_join(screening_dat$prolific_dat %>% 
                                              select(prolific_id, residence, screening_day), 
                                            by = "prolific_id")
@@ -103,12 +110,12 @@ screening_dat$screening_dat %>%
   janitor::tabyl(group)
 
 # Double check everyone in the treatment group have been on Ozempic for long enough
-
 screening_dat$screening_dat %>% 
   filter(group == "treatment") %>% 
   select(prolific_id, start_date_glp, screening_day) %>% 
   mutate(across(start_date_glp, ymd)) %>% 
-  mutate(start_date_study = start_date_glp + weeks(4)) 
+  mutate(start_date_study = start_date_glp + weeks(4)) %>% 
+  filter(start_date_study > now())
 
 
 # (4) Adjust data based on Prolific messages ---------------------------------------------------
@@ -145,32 +152,27 @@ screening_dat$screening_dat %<>%
 # (5) Check for unrealistic values ---------------------------------------------------
 
 # BMI 
-
-screening_dat$screening_dat %>% 
-  filter(group == "treatment") %>%
-  select(prolific_id, height_cm, weight_kg, bmi, height_cm_raw, weight_kg_raw, group) %>% 
-  arrange(bmi) %>% 
-  slice_tail(n=20)
-
-# flagged treatment participants: 
-# 6095c58f673ef9aa5dafd4e2: height=180, weight=416, bmi=128
-# 5dedf76558776a4a4a845c68: height=175, weight=285, bmi=92.7
-# 6457e462c16f6f27b5c0519f: height=188, weight=254, bmi=71.9
-
-# => message for clarification when they complete main testing
-
+# Make completely unrealistic values NA
 screening_dat$screening_dat %<>% 
   rowwise() %>%
   mutate(across(height_cm:bmi, ~ case_when(is.infinite(bmi) ~ NA,
-                                         is.nan(bmi) ~ NA,
-                                         bmi <= 18.5 ~ NA, 
-                                         bmi >= 150 ~ NA, 
-                                         height_cm > 240 ~ NA,
-                                         height_cm < 140 ~ NA,
-                                         weight_kg < 30 ~ NA,
-                                         weight_kg > 400 ~ NA,
-                                        .default = .))) 
+                                           is.nan(bmi) ~ NA,
+                                           bmi <= 12 ~ NA, 
+                                           bmi >= 200 ~ NA, 
+                                           height_cm > 250 ~ NA,
+                                           height_cm < 140 ~ NA,
+                                           weight_kg < 20 ~ NA,
+                                           weight_kg > 600 ~ NA,
+                                           .default = .))) %>%
+  # to end durn rowws_df back into normal tibble
+  ungroup()
 
+# Flag participants that have are underweight or have a BMI > 2 SD from sample mean
+bmi_flag <- screening_dat$screening_dat %>% 
+  select(prolific_id, height_cm, weight_kg, bmi, height_cm_raw, weight_kg_raw, group) %>% 
+  na.omit() %>%
+  filter(bmi < 18.5 | bmi > (mean(.$bmi)+2*sd(.$bmi))) %>% 
+  .$prolific_id
 
 # IPAQ
 # data cleaning according to manual
@@ -200,12 +202,12 @@ suppressMessages({
   })
 })
 
+# Check if any treatment group participants have NA IPAQ data
 screening_dat$screening_dat %>%
   filter(group == "treatment") %>% 
   select(ipaq_1:ipaq_sumScore) %>% 
   print(n=Inf)
 
-# no treatment group participants have NA IPAQ data
 
 # (6) Randomize to testing schedule and identify testing days  ---------------------------------------------------
 
@@ -231,29 +233,128 @@ screening_dat$screening_dat %>%
                                                                      match(injection_day_glp, 
                                                                            weekdays(Sys.Date()+1:7)) - 1),
                                    .default = NA
-  ))
+  )) %>% arrange(screening_day) %>% print(n = Inf)
 
-
-
-
+# Are any treatment participants flagged for BMI? 
+screening_dat$screening_dat %>% 
+  filter(group == "treatment") %>% 
+  filter(prolific_id %in% bmi_flag)
 
 # (7) Matching control participants ---------------------------------------------------
 
-# To Do: 
-# - Identify treatment participants for that have already have a match 
-# - Exclude control participants from matching that have any missing data on the matching variables
-# - Revisit the BMI issue
-# => check if any treatment people have BMI values worth double checking and do so before matching them
-# => check I don't match any controls with unrealistic BMI values
+### US group
+# Already matched participants
+control_match_US <- read_excel(here::here("data_collection/main/controls_B1.xlsx"), sheet = "US controls")
+control_match_US %<>%
+  filter(treatment_id != "TOTAL") 
 
+US_match_dat <- screening_dat$screening_dat %>% 
+  # US only
+  filter(residence == "United States") %>%
+  # Treatment and control groups
+  filter(group != "none") %>% 
+  # Only include treatment participants that have already been collected
+  filter((group == "treatment" & prolific_id %in% control_match_US$treatment_id[control_match_US$control_completed == 0]) |
+           
+  # Exclude control participants that have already been matched and collected
+           (group == "control" & !prolific_id %in% na.omit(control_match_US$control_id))) %>%
+  # Variables to screen by
+  select(prolific_id, age, gender, bmi, ipaq_sumScore, group)
 
+US_match_dat %<>% 
+  # Make group variable binary
+  mutate(group = { ifelse(group == "treatment", 1, 0) }) %>% 
+  # Use sex for non-binary gender, due to low numbers
+  left_join(screening_dat$prolific_dat %>% select(prolific_id, sex),
+            join_by(prolific_id == prolific_id)) %>% 
+  mutate(gender = { ifelse(gender == "Non-binary", 
+                           sex, 
+                           gender) }) %>%
+  # Make gender variable factor
+  mutate(gender = as.factor(gender)) %>% 
+  # Make prolific_if rownames
+  column_to_rownames(var = "prolific_id") %>% 
+  # Exclude participants that have NAs on any matching variables
+  na.omit()
 
+# matching
+US_matched <- matchit(group ~ age + gender + bmi + ipaq_sumScore, data = US_match_dat,
+                   method = "nearest", distance = "glm", link = "probit")
+summary(US_matched, un = FALSE)
 
+# Matches
+US_matched$match.matrix %<>% 
+  .[,1] %>% 
+  enframe(name = "treatment_id", value = "control_id") 
 
+# Add new matches to tibble
+control_match_US %<>% 
+  mutate(control_id = ifelse(control_completed == 1, control_id, NA)) %>% 
+  left_join(US_matched$match.matrix, by = "treatment_id") %>% 
+  unite("control_id", control_id.x, control_id.y, na.rm = TRUE, remove = FALSE) %>% 
+  select(-c(control_id.x, control_id.y))
 
+### UK group
+# Already matched participants
+control_match_UK <- read_excel(here::here("data_collection/main/controls_B1.xlsx"), sheet = "UK controls")
+control_match_UK %<>%
+  filter(treatment_id != "TOTAL") 
 
+UK_match_dat <- screening_dat$screening_dat %>% 
+  # UK only
+  filter(residence == "United Kingdom") %>%
+  # Treatment and control groups
+  filter(group != "none") %>% 
+  # Only include treatment participants that have already been collected
+  filter((group == "treatment" & prolific_id %in% control_match_UK$treatment_id[control_match_UK$control_completed == 0]) |
+           
+           # Exclude control participants that have already been matched and collected
+           (group == "control" & !prolific_id %in% na.omit(control_match_UK$control_id))) %>%
+  # Variables to screen by
+  select(prolific_id, age, gender, bmi, ipaq_sumScore, group)
 
+UK_match_dat %<>% 
+  # Make group variable binary
+  mutate(group = { ifelse(group == "treatment", 1, 0) }) %>% 
+  # Use sex for non-binary gender, due to low numbers
+  left_join(screening_dat$prolific_dat %>% select(prolific_id, sex),
+            join_by(prolific_id == prolific_id)) %>% 
+  mutate(gender = { ifelse(gender == "Non-binary", 
+                           sex, 
+                           gender) }) %>%
+  # Make gender variable factor
+  mutate(gender = as.factor(gender)) %>% 
+  # Make prolific_if rownames
+  column_to_rownames(var = "prolific_id") %>% 
+  # Exclude participants that have NAs on any matching variables
+  na.omit()
 
+# matching
+UK_matched <- matchit(group ~ age + gender + bmi + ipaq_sumScore, data = UK_match_dat,
+                      method = "nearest", distance = "glm", link = "probit")
+summary(UK_matched, un = FALSE)
 
+# Matches
+UK_matched$match.matrix %<>% 
+  .[,1] %>% 
+  enframe(name = "treatment_id", value = "control_id") 
+
+# Add new matches to tibble
+control_match_UK %<>% 
+  mutate(control_id = ifelse(control_completed == 1, control_id, NA)) %>% 
+  left_join(UK_matched$match.matrix, by = "treatment_id") %>% 
+  unite("control_id", control_id.x, control_id.y, na.rm = TRUE, remove = FALSE) %>% 
+  select(-c(control_id.x, control_id.y))
+
+### Write new excel file
+write_xlsx(setNames(list(control_match_US, control_match_UK), 
+                    c("US controls", "UK controls")), 
+           path=here::here("data_collection/main/controls_B2.xlsx"))
+
+### Write text file to copy into Prolific
+write.table(c(US_matched$match.matrix$control_id, 
+              UK_matched$match.matrix$control_id),
+            file = here::here("data_collection/main/controls_B2.txt"), 
+            sep = ";", row.names = FALSE, col.names = FALSE, quote = FALSE)
 
 
