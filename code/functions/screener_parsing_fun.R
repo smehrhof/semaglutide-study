@@ -41,6 +41,12 @@ screener_parsing <- function(file,
     }
   }
   
+  raw_meta_dat %<>%
+    rowwise %>%
+    mutate("Submission.id" = id_shuffle(Submission.id)) %>%
+    mutate("Participant.id" = id_shuffle(Participant.id))
+
+    
   ### Identify component indices ---------------------------------------------------------------------------------------
   comp_1_id <- raw_dat %>%
     lmap(\(x) list(any(grepl("Welcome to the study", x, fixed=T)))) %>%
@@ -65,6 +71,7 @@ screener_parsing <- function(file,
   
   for(subj in comp_1_id){
     comp_1_dat_subj <- raw_dat[[subj]] %>%
+      mutate(prolific_id = id_shuffle(prolific_id)) %>%
       select(c(prolific_id, age:diabetes_other)) %>% 
       summarise(across(c(prolific_id, age:diabetes_other), .fns=~na.omit(unique(.)))) %>%
       as_tibble() %>%
@@ -98,10 +105,11 @@ screener_parsing <- function(file,
     print("Parsing component 2/3:")
     progress_bar = txtProgressBar(min=0, max=length(comp_2_id), style = 1, char="=")
   }
-  
+   
   for(subj in comp_2_id){
     # Unconditional questions
     comp_2_dat_subj <- raw_dat[[subj]] %>%
+      mutate(prolific_id = id_shuffle(prolific_id)) %>%
       select(c(prolific_id, glp_treatment, medication, neurological, psych_neurdev, chronic_disease)) %>% 
       summarise(across(.fns=~max(.x, na.rm=TRUE))) %>%
       as_tibble()
@@ -139,7 +147,7 @@ screener_parsing <- function(file,
                                                    NA),
                                             NA) }, 
         schedule_glp = { ifelse(.$glp_treatment == "Current", 
-                                { ifelse(.$prolific_id == "63d3de5c9b5d8855b1c74588", 
+                                { ifelse(.$prolific_id == "93563ddbec", 
                                          "Other", 
                                          na.omit(raw_dat[[subj]]["glp_schedule"])[1,1]) },
                                 NA) },
@@ -282,7 +290,7 @@ screener_parsing <- function(file,
                                     ifelse(str_detect(na.omit(raw_dat[[subj]]["psych_neurdev_condition"])[1,1], 
                                                       "None"), 
                                            0, 1),
-                                    NA)) %>% 
+                                    0)) %>% 
       add_column(
         psych_neurdev_condition =  { ifelse(.$psych_neurdev == 1, 
                                             paste(
@@ -350,6 +358,7 @@ screener_parsing <- function(file,
   for(subj in comp_3_id){
     # IPAQ
     comp_3_dat_subj <- raw_dat[[subj]] %>% 
+      mutate(prolific_id = id_shuffle(prolific_id)) %>%
       select(ipaq_response) %>% 
       na.omit() %>%
       data.frame(variables = paste("ipaq", 1:7, sep = "_"), .) %>%

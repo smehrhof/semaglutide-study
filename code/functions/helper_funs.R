@@ -40,7 +40,6 @@ standardization <- function(x, ref = 0, levels = 1:4){
 id_shuffle <- function(x){
   new_id <- unlist(strsplit(x, ""))
   new_id <- new_id[1:10]
-  set.seed(1)
   new_id <- sample(new_id, length(new_id), FALSE)
   new_id <- paste(new_id, collapse = "")
   new_id
@@ -57,5 +56,17 @@ pass_through <- function(data, fun){
 }
 
 
+## Scale variables to 0-1 ---------------------------------------------------------
+#@ x: Variable vector
+
+rescale <- function(x){
+  (x-min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE)-min(x, na.rm = TRUE))
+}
 
 
+## Normalize negatively skewed data ---------------------------------------------------------
+#@ x: Variable vector
+
+norm_neg_skew <- function(x){
+  (1 - sqrt(1 - x))
+}

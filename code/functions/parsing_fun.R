@@ -50,10 +50,21 @@ parsing <- function(file,
       raw_doses_dat <- read.csv(doses_file, sep = ";") %>% as_tibble() 
     }
     
+    raw_doses_dat %<>%
+      rowwise() %>%
+      mutate(prolific_id = id_shuffle(prolific_id))
+    
     ### Load file with corrected days since injection ------------------------------------------------------------------------------------------
     if(!is.na(last_injection_file)){
       last_injection_dat <- read.csv(last_injection_file, sep = ";") %>% as_tibble() 
+      
+      last_injection_dat %<>%
+        rowwise() %>%
+        mutate(prolific_id = id_shuffle(prolific_id))
+    } else {
+      last_injection_dat <- tibble("prolific_id" = NA)
     }
+
     
     ### Identify component indices ---------------------------------------------------------------------------------------
     comp_1_id <- raw_dat %>%
@@ -75,6 +86,10 @@ parsing <- function(file,
     
     # Only approved participants
     meta_data <- raw_meta_dat %>%
+      rowwise() %>%
+      mutate(Submission.id = id_shuffle(Submission.id)) %>%
+      mutate(Participant.id = id_shuffle(Participant.id)) %>%
+      ungroup() %>%
       filter(Status == "APPROVED") %>%
       select(Participant.id, Age, Sex, Ethnicity.simplified, Country.of.residence, Started.at, Completed.at) %>%
       as_tibble() %>% 
@@ -107,9 +122,14 @@ parsing <- function(file,
     
     for(subj in comp_1_id){
       
+      raw_dat[[subj]] %<>% 
+        mutate(prolific_id = id_shuffle(prolific_id)) %>%
+        mutate(study_id = id_shuffle(study_id)) %>%
+        mutate(session_id = id_shuffle(session_id))
+        
       # Control subjects: bug in diabetes medication type (answers in same column)
       if(session == "control"){
-        raw_dat[[subj]] %<>% 
+        raw_dat[[subj]] %<>%
           mutate(., diabetes_med_type = diabetes_med,
                  .after = diabetes_med) %>% 
           naniar::replace_with_na_at(.vars = c("diabetes_med"),
@@ -160,16 +180,13 @@ parsing <- function(file,
                                             na.omit(raw_dat[[subj]]["glp_dose"])[1,1])},
                                    NA) }, 
             last_injection_days = { ifelse(.$glp_check == 1,
-                                   { ifelse(.$prolific_id %in% last_injection_dat$prolific_id & session == "s1", 
+                                   { ifelse(session == "s1" & .$prolific_id %in% last_injection_dat$prolific_id, 
                                             last_injection_dat %>% 
                                               filter(prolific_id == comp_1_dat_subj$prolific_id) %>% 
                                               select(all_of(session)) %>% 
                                               as.numeric(), 
                                             na.omit(raw_dat[[subj]]["last_injection"])[1,1])},
                                    NA) }, 
-            #last_injection_days = { ifelse(.$glp_check == 1, 
-            #                               na.omit(raw_dat[[subj]]["last_injection"])[1,1], 
-            #                               NA) }, 
             last_injection_time = { ifelse(.$glp_check == 1, 
                                            case_when(na.omit(raw_dat[[subj]]["last_injection_time"]) == 0 ~ "before 6am", 
                                                      na.omit(raw_dat[[subj]]["last_injection_time"]) == 1 ~ "6am - 10am", 
@@ -220,7 +237,7 @@ parsing <- function(file,
                                                        NA),
                                                 NA) }, 
             schedule_glp = { ifelse(.$glp_treatment == "Current", 
-                                    { ifelse(.$prolific_id == "63d3de5c9b5d8855b1c74588", 
+                                    { ifelse(.$prolific_id == "93563ddbec", 
                                              "Other", 
                                              na.omit(raw_dat[[subj]]["glp_schedule"])[1,1]) },
                                     NA) },
@@ -414,7 +431,7 @@ parsing <- function(file,
     }
     
     for(subj in comp_2_id){
-      
+
       # meta data
       comp_2_dat_meta_subj <- tibble(prolific_id = raw_dat[[subj-1]] %>%
                                        .$prolific_id %>%
@@ -516,6 +533,11 @@ parsing <- function(file,
     }
     
     for(subj in comp_3_id){
+      
+      raw_dat[[subj]] %<>% 
+        mutate(prolific_id = id_shuffle(prolific_id)) %>%
+        mutate(study_id = id_shuffle(study_id)) %>%
+        mutate_at(vars(one_of('session_id')), id_shuffle)
       
       comp_3_dat_subj <- raw_dat[[subj]] %>%
         select(prolific_id) %>% 
@@ -770,6 +792,11 @@ parsing <- function(file,
     
     
     for(subj in comp_4_id){
+      
+      raw_dat[[subj]] %<>% 
+        mutate(prolific_id = id_shuffle(prolific_id)) %>%
+        mutate(study_id = id_shuffle(study_id)) %>%
+        mutate_at(vars(one_of('session_id')), id_shuffle)
       
       comp_4_dat_subj <- raw_dat[[subj]] %>%
         select(prolific_id) %>% 
