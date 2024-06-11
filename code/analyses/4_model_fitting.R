@@ -7,8 +7,7 @@
 # (2) Model fitting
 # (3) Convergence check
 # (4) Model comparison
-# (5) Model validation
-# (6) Posterior predictive checks
+# (5) Posterior predictive checks
 
 # Set working directory
 here::i_am("github/semaglutide-study/code/analyses/4_model_fitting.R")
