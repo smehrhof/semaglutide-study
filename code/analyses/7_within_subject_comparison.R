@@ -18,9 +18,9 @@ source("github/semaglutide-study/code/functions/plot_funs.R")
 main_data <- readRDS("data/processed_data/main_data.RDS")
 
 # source parameter estimates
-m3_para_treat_s1_params <- readRDS(here::here("data/model_fits/treatment_s1/m3_para_treat_s1_params.RDS"))
+m3_para_treat_s1_params <- readRDS(here::here("github/semaglutide-study/data/model_fits/treatment_s1/m3_para_treat_s1_params.RDS"))
 
-m3_para_treat_s2_params <- readRDS(here::here("data/model_fits/treatment_s2/m3_para_treat_s2_params.RDS"))
+m3_para_treat_s2_params <- readRDS(here::here("github/semaglutide-study/data/model_fits/treatment_s2/m3_para_treat_s2_params.RDS"))
 
 # load required packages
 librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, PupillometryR,
@@ -128,6 +128,17 @@ t.test(estimate_kR ~ injection_group, data = data, paired = TRUE)
 ### Choice bias
 t.test(estimate_a ~ injection_group, data = data, paired = TRUE)
 
+### (2) Questionnaire data -----------------------------------------------
 
+### DAQ
+t.test(daq_sumScore ~ injection_group, data = data, paired = TRUE)
+
+### SHAPS
+t.test(shaps_sumScore ~ injection_group, data = data, paired = TRUE)
+
+### TFEQ
+t.test(tfeq_cr_sumScore ~ injection_group, data = data, paired = TRUE)
+t.test(tfeq_ue_sumScore ~ injection_group, data = data, paired = TRUE)
+t.test(tfeq_ee_sumScore ~ injection_group, data = data, paired = TRUE)
 
 
