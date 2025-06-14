@@ -6,10 +6,10 @@
 # @ file: vector of relative path(s) to .txt data file(s) or existing R object
 # @ meta_file: vector of relative path(s) to .csv data file(s) with Prolific meta data
 
-parsing <- function(file,
-                    meta_file, 
-                    doses_file, 
-                    last_injection_file, 
+parsing <- function(raw_dat,
+                    raw_meta_dat, 
+                    doses_dat, 
+                    last_injection_dat, 
                     session = "s1", 
                     display_progress = FALSE){
   
@@ -24,46 +24,38 @@ parsing <- function(file,
     require(broom)
     
     ### Load raw JSON data -----------------------------------------------------------------------------------------------
-    if(length(file) == 1){ 
-      raw_dat <- jsonlite::fromJSON(sprintf('[%s]', paste(readLines(file, encoding="UTF-8", warn=F), collapse = ',')))
-    } else if(length(file) > 1){
-      raw_dat <- list()
-      for(i in 1:length(file)){
-        raw_dat <- append(raw_dat,  jsonlite::fromJSON(sprintf('[%s]', paste(readLines(file[i], encoding="UTF-8", warn=F), collapse = ','))))
-      }
-    }
+    #if(length(file) == 1){ 
+    #  raw_dat <- jsonlite::fromJSON(sprintf('[%s]', paste(readLines(file, encoding="UTF-8", warn=F), collapse = ',')))
+    #} else if(length(file) > 1){
+    #  raw_dat <- list()
+    #  for(i in 1:length(file)){
+    #    raw_dat <- append(raw_dat,  jsonlite::fromJSON(sprintf('[%s]', paste(readLines(file[i], encoding="UTF-8", warn=F), collapse = ','))))
+    #  }
+    #}
     
     ### Load Prolific meta data ------------------------------------------------------------------------------------------
-    if(length(meta_file) == 1){
-      raw_meta_dat <- read.csv(meta_file)
-    } else if(length(meta_file) > 1){
-      raw_meta_dat <- matrix(ncol = length(read.csv(meta_file[1])), nrow = 0)
-      colnames(raw_meta_dat) <-  colnames(read.csv(meta_file[1]))
+    #if(length(meta_file) == 1){
+    #  raw_meta_dat <- read.csv(meta_file)
+    #} else if(length(meta_file) > 1){
+    #  raw_meta_dat <- matrix(ncol = length(read.csv(meta_file[1])), nrow = 0)
+    #  colnames(raw_meta_dat) <-  colnames(read.csv(meta_file[1]))
       
-      for(i in 1:length(meta_file)){
-        raw_meta_dat <- rbind(raw_meta_dat, read.csv(meta_file[i]) %>% select(colnames(raw_meta_dat)))
-      }
-    }
+     # for(i in 1:length(meta_file)){
+     #   raw_meta_dat <- rbind(raw_meta_dat, read.csv(meta_file[i]) %>% select(colnames(raw_meta_dat)))
+     # }
+    #}
     
     ### Load file with extra dose data ------------------------------------------------------------------------------------------
-    if(!is.na(doses_file)){
-      raw_doses_dat <- read.csv(doses_file, sep = ";") %>% as_tibble() 
-    }
-    
-    raw_doses_dat %<>%
-      rowwise() %>%
-      mutate(prolific_id = id_shuffle(prolific_id))
+    #if(!is.na(doses_file)){
+    #  doses_dat <- read.csv(doses_file, sep = ";") %>% as_tibble() 
+    #}
     
     ### Load file with corrected days since injection ------------------------------------------------------------------------------------------
-    if(!is.na(last_injection_file)){
-      last_injection_dat <- read.csv(last_injection_file, sep = ";") %>% as_tibble() 
-      
-      last_injection_dat %<>%
-        rowwise() %>%
-        mutate(prolific_id = id_shuffle(prolific_id))
-    } else {
-      last_injection_dat <- tibble("prolific_id" = NA)
-    }
+    #if(!is.na(last_injection_file)){
+    #  last_injection_dat <- read.csv(last_injection_file, sep = ";") %>% as_tibble() 
+    #} else {
+    #  last_injection_dat <- tibble("prolific_id" = NA)
+    #}
 
     
     ### Identify component indices ---------------------------------------------------------------------------------------
@@ -86,10 +78,6 @@ parsing <- function(file,
     
     # Only approved participants
     meta_data <- raw_meta_dat %>%
-      rowwise() %>%
-      mutate(Submission.id = id_shuffle(Submission.id)) %>%
-      mutate(Participant.id = id_shuffle(Participant.id)) %>%
-      ungroup() %>%
       filter(Status == "APPROVED") %>%
       select(Participant.id, Age, Sex, Ethnicity.simplified, Country.of.residence, Started.at, Completed.at) %>%
       as_tibble() %>% 
@@ -122,11 +110,7 @@ parsing <- function(file,
     
     for(subj in comp_1_id){
       
-      raw_dat[[subj]] %<>% 
-        mutate(prolific_id = id_shuffle(prolific_id)) %>%
-        mutate(study_id = id_shuffle(study_id)) %>%
-        mutate(session_id = id_shuffle(session_id))
-        
+
       # Control subjects: bug in diabetes medication type (answers in same column)
       if(session == "control"){
         raw_dat[[subj]] %<>%
@@ -172,8 +156,8 @@ parsing <- function(file,
         comp_1_dat_subj %<>% 
           add_column(
             glp_dose_mg = { ifelse(.$glp_check == 1,
-                                   { ifelse(.$prolific_id %in% raw_doses_dat$prolific_id, 
-                                            raw_doses_dat %>% 
+                                   { ifelse(.$prolific_id %in% doses_dat$prolific_id, 
+                                            doses_dat %>% 
                                               filter(prolific_id == comp_1_dat_subj$prolific_id) %>% 
                                               select(all_of(session)) %>% 
                                               as.character(), 
@@ -279,8 +263,8 @@ parsing <- function(file,
             .after = "side_effects_glp") %>% 
           add_column(
             glp_dose_mg = { ifelse(.$type_glp == "Semaglutide_Ozempic",
-                                   { ifelse(.$prolific_id %in% raw_doses_dat$prolific_id, 
-                                            raw_doses_dat %>% 
+                                   { ifelse(.$prolific_id %in% doses_dat$prolific_id, 
+                                            doses_dat %>% 
                                               filter(prolific_id == comp_1_dat_subj$prolific_id) %>% 
                                               select(all_of(session)) %>% 
                                               as.character(), 
@@ -437,6 +421,7 @@ parsing <- function(file,
                                        .$prolific_id %>%
                                        unique(), 
                                      game_id = raw_dat[[subj]]$subjID,
+                                     click_calibration = mean(raw_dat[[subj]]$clicks[raw_dat[[subj]]$phase == "calibration"][2:3]),
                                      start_time = raw_dat[[subj]]$date[1] %>% as_datetime(),
                                      end_time = raw_dat[[subj]]$date[2] %>% as_datetime()) %>%
         mutate(completion_time = difftime(start_time, end_time) %>% abs())
@@ -533,11 +518,6 @@ parsing <- function(file,
     }
     
     for(subj in comp_3_id){
-      
-      raw_dat[[subj]] %<>% 
-        mutate(prolific_id = id_shuffle(prolific_id)) %>%
-        mutate(study_id = id_shuffle(study_id)) %>%
-        mutate_at(vars(one_of('session_id')), id_shuffle)
       
       comp_3_dat_subj <- raw_dat[[subj]] %>%
         select(prolific_id) %>% 
@@ -792,11 +772,6 @@ parsing <- function(file,
     
     
     for(subj in comp_4_id){
-      
-      raw_dat[[subj]] %<>% 
-        mutate(prolific_id = id_shuffle(prolific_id)) %>%
-        mutate(study_id = id_shuffle(study_id)) %>%
-        mutate_at(vars(one_of('session_id')), id_shuffle)
       
       comp_4_dat_subj <- raw_dat[[subj]] %>%
         select(prolific_id) %>% 
