@@ -19,8 +19,8 @@ source("github/semaglutide-study/code/functions/plot_funs.R")
 main_data <- readRDS("data/processed_data/main_data.RDS")
 
 # source parameter estimates
-m3_para_treat_s1_params <- readRDS(here::here("data/model_fits/treatment_s1/m3_para_treat_s1_params.RDS"))
-m3_para_control_params <- readRDS(here::here("data/model_fits/controls/m3_para_control_params.RDS"))
+m3_para_treat_s1_params <- readRDS(here::here("github/semaglutide-study/data/model_fits/treatment_s1/m3_para_treat_s1_params.RDS"))
+m3_para_control_params <- readRDS(here::here("github/semaglutide-study/data/model_fits/controls/m3_para_control_params.RDS"))
 
 # load required packages
 librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, PupillometryR,
@@ -44,7 +44,7 @@ data <- main_data$demographic_data %>%
               filter(session == 1) %>% 
               select(subj_id, aes_sumScore, bdi_sumScore, findrisc_sumScore, mcq_discounting_rate, mctq_MSF_SC, meq_sumScore, 
                      ocir_sumScore, daq_sumScore, shaps_sumScore, tfeq_cr_sumScore, tfeq_ue_sumScore, tfeq_ee_sumScore, 
-                     ipaq_sumScore, last_meal_time, last_meal_size, snack, snack_time, hunger_rating, cgl, cgl_measure,cgl_unit),
+                     ipaq_sumScore, last_meal_time, last_meal_size, snack, snack_time, hunger_rating, cgl, cgl_measure,cgl_unit, hunger_rating),
             by = "subj_id") %>% 
   left_join(main_data$task_meta_data %>% 
               filter(session == 1) %>% 
@@ -95,6 +95,10 @@ data %<>%
 ### (2) Task data - model based -----------------------------------------------
 
 ### Effort sensitivity
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_kE = mean(estimate_kE),
+            sd_kE = sd(estimate_kE))
 # Check if variances are equal
 var.test(data$estimate_kE ~ data$group)
 # => variances are equal -> t test
@@ -112,6 +116,10 @@ kE_plot <- raincloud_plot(dat = data, title = "",
   ggtitle("Effort sensitivity")
 
 ### Reward sensitivity
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_kR = mean(estimate_kR),
+            sd_kR = sd(estimate_kR))
 # Check if variances are equal
 var.test(data$estimate_kR ~ data$group)
 # => variances are not equal -> welch test
@@ -129,14 +137,16 @@ kR_plot <- raincloud_plot(dat = data, title = "",
   ggtitle("Reward sensitivity")
 
 ### Choice bias 
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_a = mean(estimate_a),
+            sd_a = sd(estimate_a))
 # Check if variances are equal
 var.test(data$estimate_a ~ data$group)
 # => variances are equal -> t test
-cb_glm <- glm(estimate_a ~ group + antidepressant, data = data, family = "gaussian")
-summary(cb_glm)
 t.test(data$estimate_a ~ data$group, var.equal = FALSE)
 # Bayesian GLM
-a_glm <- stan_glm(estimate_a ~ group + antidepressant, data = data, 
+a_glm <- stan_glm(estimate_a ~ group, data = data, 
                         iter = 100000, seed = 123)
 a_glm$coefficients
 hdi(a_glm)
@@ -162,6 +172,10 @@ corrplot::corrplot(psych_cor, method="circle")
 # Group comparison
 # AES
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_aes = mean(aes_sumScore),
+            sd_aes = sd(aes_sumScore))
 t.test(aes_sumScore ~ group, data = data)
 aes_f_glm <- glm(aes_sumScore ~ group, data = data, family = "gaussian")
 summary(aes_f_glm)
@@ -172,6 +186,10 @@ aes_b_glm$coefficients
 hdi(aes_b_glm)
 
 # BDI
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_bdi = mean(bdi_sumScore),
+            sd_bdi = sd(bdi_sumScore))
 t.test(bdi_sumScore ~ group, data = data)
 bdi_f_glm <- glm(bdi_sumScore ~ group, data = data, family = "gaussian")
 summary(bdi_f_glm)
@@ -183,6 +201,10 @@ hdi(bdi_b_glm)
 
 # OCIR
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_ocir = mean(ocir_sumScore),
+            sd_ocir = sd(ocir_sumScore))
 t.test(ocir_sumScore ~ group, data = data)
 ocir_f_glm <- glm(ocir_sumScore ~ group, data = data, family = "gaussian")
 summary(ocir_f_glm)
@@ -194,6 +216,10 @@ hdi(ocir_b_glm)
 
 # DAQ
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_daq = mean(daq_sumScore),
+            sd_daq = sd(daq_sumScore))
 t.test(daq_sumScore ~ group, data = data)
 daq_f_glm <- glm(daq_sumScore ~ group, data = data, family = "gaussian")
 summary(daq_f_glm)
@@ -205,6 +231,10 @@ hdi(daq_b_glm)
 
 # SHAPS
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_shaps = mean(shaps_sumScore),
+            sd_shaps = sd(shaps_sumScore))
 t.test(shaps_sumScore ~ group, data = data)
 shaps_f_glm <- glm(shaps_sumScore ~ group, data = data, family = "gaussian")
 summary(shaps_f_glm)
@@ -216,6 +246,10 @@ hdi(shaps_b_glm)
 
 # Monetary discounting
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_mcq = mean(mcq_discounting_rate),
+            sd_mcq = sd(mcq_discounting_rate))
 t.test(mcq_discounting_rate ~ group, data = data)
 mcq_glm <- glm(mcq_discounting_rate ~ group, data = data, family = "gaussian")
 summary(mcq_glm)
@@ -235,6 +269,11 @@ corrplot::corrplot(eat_cor, method="circle")
 
 # Cognitive restrained
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_cr = mean(tfeq_cr_sumScore),
+            sd_cr = sd(tfeq_cr_sumScore))
+t.test(tfeq_cr_sumScore ~ group, data = data)
 tfeq_cr_f_glm <- glm(tfeq_cr_sumScore ~ group, data = data, family = "gaussian")
 summary(tfeq_cr_f_glm)
 # bayesian
@@ -245,6 +284,11 @@ hdi(tfeq_cr_glm)
 
 # Uncontrolled eating
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_ue = mean(tfeq_ue_sumScore),
+            sd_ue = sd(tfeq_ue_sumScore))
+t.test(tfeq_ue_sumScore ~ group, data = data)
 tfeq_ue_f_glm <- glm(tfeq_ue_sumScore ~ group, data = data, family = "gaussian")
 summary(tfeq_ue_f_glm)
 # bayesian
@@ -263,6 +307,11 @@ tfeq_ue_plot <- raincloud_plot(dat = data, title = "",
 
 # Emotional eating
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_ee = mean(tfeq_ee_sumScore),
+            sd_ee = sd(tfeq_ee_sumScore))
+t.test(tfeq_ee_sumScore ~ group, data = data)
 tfeq_ee_f_glm <- glm(tfeq_ee_sumScore ~ group, data = data, family = "gaussian")
 summary(tfeq_ee_f_glm)
 # bayesian
@@ -310,6 +359,11 @@ corrplot::corrplot(circ_cor, method="circle")
 
 # MCTQ
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_mctq = mean(mctq_continuous),
+            sd_mctq = sd(mctq_continuous))
+t.test(mctq_continuous ~ group, data = data)
 mctq_f_glm <- glm(mctq_continuous ~ group, data = data, family = "gaussian")
 summary(mctq_f_glm)
 # bayesian
@@ -320,6 +374,11 @@ hdi(mctq_glm)
 
 # MEQ
 # frequentist
+data %>% 
+  group_by(group) %>% 
+  summarise(mean_meq = mean(meq_sumScore),
+            sd_meq = sd(meq_sumScore))
+t.test(meq_sumScore ~ group, data = data)
 meq_f_glm <- glm(meq_sumScore ~ group, data = data, family = "gaussian")
 summary(meq_f_glm)
 # bayesian
