@@ -38,6 +38,7 @@ standardization <- function(x, ref = 0, levels = 1:4){
 #@ x: Character string
 
 id_shuffle <- function(x){
+  set.seed(1)
   new_id <- unlist(strsplit(x, ""))
   new_id <- new_id[1:10]
   new_id <- sample(new_id, length(new_id), FALSE)
