@@ -6,8 +6,8 @@
 # @ file: vector of relative path(s) to .txt data file(s) or existing R object
 # @ meta_file: vector of relative path(s) to .csv data file(s) with Prolific meta data
 
-screener_parsing <- function(file,
-                             meta_file, 
+screener_parsing <- function(raw_dat,
+                             raw_meta_dat, 
                              display_progress = FALSE){
   
   suppressMessages({
@@ -19,34 +19,6 @@ screener_parsing <- function(file,
   require(magrittr)
   require(lubridate)
   
-  ### Load raw JSON data -----------------------------------------------------------------------------------------------
-  if(length(file) == 1){
-    raw_dat <- jsonlite::fromJSON(sprintf('[%s]', paste(readLines(file, encoding="UTF-8", warn=F), collapse = ',')))
-  } else if(length(file) > 1){
-    raw_dat <- list()
-    for(i in 1:length(file)){
-      raw_dat <- append(raw_dat,  jsonlite::fromJSON(sprintf('[%s]', paste(readLines(file[i], encoding="UTF-8", warn=F), collapse = ','))))
-    }
-  }
-  
-  ### Load Prolific meta data ------------------------------------------------------------------------------------------
-  if(length(meta_file) == 1){
-    raw_meta_dat <- read.csv(meta_file)
-  } else if(length(meta_file) > 1){
-    raw_meta_dat <- matrix(ncol = length(read.csv(meta_file[1])), nrow = 0)
-    colnames(raw_meta_dat) <-  colnames(read.csv(meta_file[1]))
-    
-    for(i in 1:length(meta_file)){
-      raw_meta_dat <- rbind(raw_meta_dat, read.csv(meta_file[i]))
-    }
-  }
-  
-  raw_meta_dat %<>%
-    rowwise %>%
-    mutate("Submission.id" = id_shuffle(Submission.id)) %>%
-    mutate("Participant.id" = id_shuffle(Participant.id))
-
-    
   ### Identify component indices ---------------------------------------------------------------------------------------
   comp_1_id <- raw_dat %>%
     lmap(\(x) list(any(grepl("Welcome to the study", x, fixed=T)))) %>%
@@ -71,7 +43,6 @@ screener_parsing <- function(file,
   
   for(subj in comp_1_id){
     comp_1_dat_subj <- raw_dat[[subj]] %>%
-      mutate(prolific_id = id_shuffle(prolific_id)) %>%
       select(c(prolific_id, age:diabetes_other)) %>% 
       summarise(across(c(prolific_id, age:diabetes_other), .fns=~na.omit(unique(.)))) %>%
       as_tibble() %>%
@@ -109,7 +80,6 @@ screener_parsing <- function(file,
   for(subj in comp_2_id){
     # Unconditional questions
     comp_2_dat_subj <- raw_dat[[subj]] %>%
-      mutate(prolific_id = id_shuffle(prolific_id)) %>%
       select(c(prolific_id, glp_treatment, medication, neurological, psych_neurdev, chronic_disease)) %>% 
       summarise(across(.fns=~max(.x, na.rm=TRUE))) %>%
       as_tibble()
@@ -358,7 +328,6 @@ screener_parsing <- function(file,
   for(subj in comp_3_id){
     # IPAQ
     comp_3_dat_subj <- raw_dat[[subj]] %>% 
-      mutate(prolific_id = id_shuffle(prolific_id)) %>%
       select(ipaq_response) %>% 
       na.omit() %>%
       data.frame(variables = paste("ipaq", 1:7, sep = "_"), .) %>%
