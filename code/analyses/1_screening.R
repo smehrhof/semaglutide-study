@@ -25,14 +25,14 @@ librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janito
 
 # (1) Parse data ---------------------------------------------------
 
-data_files <- list.files(path = here::here("data/raw_data/screening"), 
-                         pattern = ".txt", full.names = TRUE)
-meta_files <- list.files(path = here::here("data/raw_data/screening"), 
-                         pattern = ".csv", full.names = TRUE)
+raw_dat <- readRDS("github/semaglutide-study/data/raw_data/screening/raw_dat.RDS")
 
-screening_dat <- screener_parsing(file = data_files, 
-                                  meta_file = meta_files, 
+raw_meta_dat <- readRDS("github/semaglutide-study/data/raw_data/screening/raw_meta_dat.RDS")
+
+screening_dat <- screener_parsing(raw_dat = raw_dat, 
+                                  raw_meta_dat = raw_meta_dat, 
                                   display_progress = TRUE)
+
 
 # (2) Exclusion ---------------------------------------------------
  
@@ -209,7 +209,7 @@ screening_dat$screening_dat %>%
 
 # (6) Save processed data  ---------------------------------------------------
 setwd(here::here())
-saveRDS(screening_dat, "data/processed_data/screening_data.RDS")
+saveRDS(screening_dat, "github/semaglutide-study/data/processed_data/screening_dat.RDS")
 
 # (7) Randomize to testing schedule and identify testing days  ---------------------------------------------------
 
