@@ -24,62 +24,62 @@ source("github/semaglutide-study/code/functions/parsing_fun.R")
 librarian::shelf(ggplot2, ggpubr, tidyverse, dplyr, stringr, purrr, here, janitor, MatchIt, writexl, tidyr)
 # (1) Parse data ---------------------------------------------------
 
-### Treatment - Session 1
+### Load file with extra dose data ------------------------------------------------------------------------------------------
 
-data_files <- list.files(path = here::here("data/raw_data/treatment_group/session_1"), 
-                         pattern = ".txt", full.names = TRUE)
+raw_doses_dat <- read.csv(here::here("github/semaglutide-study/data/raw_data/treatment_group/doses.csv"), 
+                          sep = ";") %>% as_tibble() 
 
-doses_file <- list.files(path = here::here("data/raw_data/treatment_group"), 
-                         pattern = "doses.csv", full.names = TRUE)
+last_injection_dat <- read.csv(here::here("github/semaglutide-study/data/raw_data/treatment_group/last_injection.csv"), 
+                               sep = ";") %>% as_tibble() 
 
-last_injection_file <- list.files(path = here::here("data/raw_data/treatment_group"), 
-                         pattern = "last_injection.csv", full.names = TRUE)
+raw_dat <- readRDS("github/semaglutide-study/data/raw_data/treatment_group/session_1/raw_dat.RDS")
 
-meta_files <- list.files(path = here::here("data/raw_data/treatment_group/session_1"), 
-                         pattern = ".csv", full.names = TRUE)
+raw_meta_dat <- readRDS("github/semaglutide-study/data/raw_data/treatment_group/session_1/raw_meta_dat.RDS")
 
-s1_data <- parsing(file = data_files, 
-                   meta_file = meta_files, 
-                   doses_file = doses_file, 
-                   last_injection_file = last_injection_file,
+
+s1_data <- parsing(raw_dat = raw_dat, 
+                   raw_meta_dat = raw_meta_dat, 
+                   doses_dat = raw_doses_dat, 
+                   last_injection_dat = last_injection_dat,
                    session = "s1", 
                    display_progress = TRUE)
 
 ### Treatment - Session 2
 
-data_files <- list.files(path = here::here("data/raw_data/treatment_group/session_2"), 
-                         pattern = ".txt", full.names = TRUE)
+raw_doses_dat <- read.csv(here::here("github/semaglutide-study/data/raw_data/treatment_group/doses.csv"), 
+                          sep = ";") %>% as_tibble() 
 
-doses_file <- list.files(path = here::here("data/raw_data/treatment_group"), 
-                         pattern = "doses.csv", full.names = TRUE)
+last_injection_dat <- tibble("prolific_id" = NA)
 
-meta_files <- list.files(path = here::here("data/raw_data/treatment_group/session_2"), 
-                         pattern = ".csv", full.names = TRUE)
+raw_dat <- readRDS("github/semaglutide-study/data/raw_data/treatment_group/session_2/raw_dat.RDS")
 
-s2_data <- parsing(file = data_files, 
-                   meta_file = meta_files, 
-                   doses_file = doses_file, 
-                   last_injection_file = NA,
+raw_meta_dat <- readRDS("github/semaglutide-study/data/raw_data/treatment_group/session_2/raw_meta_dat.RDS")
+
+
+s2_data <- parsing(raw_dat = raw_dat, 
+                   raw_meta_dat = raw_meta_dat, 
+                   doses_dat = raw_doses_dat, 
+                   last_injection_dat = last_injection_dat,
                    session = "s2", 
                    display_progress = TRUE)
 
+
+
 ### Controls
 
-data_files <- list.files(path = here::here("data/raw_data/control_group"), 
-                         pattern = ".txt", full.names = TRUE)
+raw_doses_dat <- read.csv(here::here("github/semaglutide-study/data/raw_data/control_group/doses.csv"), 
+                          sep = ";") %>% as_tibble() 
 
-doses_file <- list.files(path = here::here("data/raw_data/control_group/doses"), 
-                         pattern = "doses.csv", full.names = TRUE)
+raw_dat <- readRDS("github/semaglutide-study/data/raw_data/control_group/raw_dat.RDS")
 
-meta_files <- list.files(path = here::here("data/raw_data/control_group"), 
-                         pattern = ".csv", full.names = TRUE)
+raw_meta_dat <- readRDS("github/semaglutide-study/data/raw_data/control_group/raw_meta_dat.RDS")
 
-controls_data <- parsing(file = data_files, 
-                   meta_file = meta_files, 
-                   doses_file = doses_file, 
-                   last_injection_file = NA,
-                   session = "control", 
-                   display_progress = TRUE)
+controls_data <- parsing(raw_dat = raw_dat, 
+                         raw_meta_dat = raw_meta_dat, 
+                         doses_dat = raw_doses_dat, 
+                         last_injection_dat = NA,
+                         session = "control", 
+                         display_progress = TRUE)
 
 # Correct "other medication" input bug
 controls_data$demographic_dat %>% 
@@ -117,7 +117,7 @@ s1_data$demographic_dat %<>%
 
 # (3) Merge with screening data ---------------------------------------------------
 
-screening_dat <- readRDS("data/processed_data/screening_data.RDS")
+screening_dat <- readRDS("github/semaglutide-study/data/processed_data/screening_dat.RDS")
 
 screening_dat$screening_dat %>% 
   tabyl(group)
@@ -367,7 +367,7 @@ controls_exclusion <- append(controls_exclusion,
 # 0 participants excluded
 
 # Questionnaire based: catch questions
-controls_exclusion <- append(controls_exclusion, 
+controls_exclusion <- append(controls_exclusion,
                              controls_data$questionnaire_dat %>% 
                                filter(catch_questions_pass == 0) %>% 
                                .$prolific_id)
@@ -439,6 +439,8 @@ demographic_data <- bind_rows(
            diabetes_medication:chronic_disease_condition_other, 
            height_cm:weight_loss_interventions_other, 
            residence) %>% 
+    left_join(s1_data$prolific_dat %>% 
+                select(subj_id, sex)) %>% 
     left_join(s1_data$demographic_dat %>% 
                 select(subj_id, games)) %>% 
     # update medication information if indicated
@@ -463,6 +465,8 @@ demographic_data <- bind_rows(
            diabetes_medication:chronic_disease_condition_other, 
            height_cm:weight_loss_interventions_other, 
            residence) %>% 
+    left_join(controls_data$prolific_dat %>% 
+                select(subj_id, sex)) %>% 
     left_join(controls_data$demographic_dat %>% 
                 select(subj_id, games)) %>% 
     # update medication information if indicated
@@ -600,215 +604,11 @@ data <- list(demographic_data = demographic_data, glp_data = glp_data,
 
 # (6) Save processed data  ---------------------------------------------------
 setwd(here::here())
-saveRDS(data, "data/processed_data/main_data.RDS")
+saveRDS(data, "github/semaglutide-study/data/processed_data/main_data.RDS")
 
-# (7) Find and match non-diabetic controls  ---------------------------------------------------
+# (7) Load groups of non-diabetic controls  ---------------------------------------------------
 
-# Dataset of all non diabetic controls
+# Data from https://github.com/smehrhof/2024_effort_study
 
-# inclusion criteria: 
-# - non-diabetic as indicated in prolific screener
-# - FINDRISC score < 12 (indicating no high risk of diabetes)
-# no missing data on questionnaires
-
-# read in non-diabetics data
-non_diabetic_all <- readRDS("data/processed_data/non_diabetic_all.RDS")
-
-non_diabetic_all$demographics %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-non_diabetic_all$game %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-non_diabetic_all$game_meta %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-non_diabetic_all$modelling_data %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-non_diabetic_all$questionnaire %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-# Structure data 
-non_diabetic_all$demographics %<>% 
-  left_join(non_diabetic_all$questionnaire %>% 
-              select(subj_id, bmi_response_1:bmi_result, findrisc_sumScore)) %>% 
-  rename(bmi = bmi_result) %>% 
-  # apply same BMI exclusion criteria as for diabetic sample
-  filter(bmi < bmi_excl) %>% 
-  filter(findrisc_sumScore < 12)
-
-non_diabetic_all <- list(demographic_data = non_diabetic_all$demographics, 
-                         task_meta_data = non_diabetic_all$game_meta %>% filter(subj_id %in% non_diabetic_all$demographics$subj_id), 
-                         task_data = non_diabetic_all$game %>% filter(subj_id %in% non_diabetic_all$demographics$subj_id),  
-                         questionnaire_data = non_diabetic_all$questionnaire %>% filter(subj_id %in% non_diabetic_all$demographics$subj_id))
-  
-### Matching to treatment group
-# by age, gender, bmi, and IPAQ
-
-match_data <- bind_rows(
-  data$demographic_data %>% 
-    filter(group == "treatment") %>% 
-    select(subj_id, group, age, gender, bmi) %>%
-    left_join(data$questionnaire_data %>% 
-                filter(group == "treatment", session == 1) %>% 
-                select(subj_id, ipaq_sumScore)), 
-  
-  non_diabetic_all$demographic_data %>% 
-    select(subj_id, age, gender, bmi) %>%
-    left_join(non_diabetic_all$questionnaire_data %>% 
-                select(subj_id, ipaq_sumScore)) %>% 
-    add_column(group = "non_diabetic_controls", 
-               .after = "subj_id")
-  ) %>% 
-  na.omit %>% 
-  mutate(group = case_when(group == "treatment" ~ 1,
-                           group == "non_diabetic_controls" ~ 0))
-
-
-# matching
-non_diabetic_matches <- matchit(group ~ age + gender + bmi + ipaq_sumScore, data = match_data,
-                      method = "nearest", distance = "glm", link = "probit")
-summary(non_diabetic_matches, un = FALSE)
-
-# Matches
-non_diabetic_matches$match.matrix %<>% 
-  .[,1] %>% 
-  enframe(name = "treatment_id", value = "control_id") 
-
-matched_ids <- match_data[non_diabetic_matches$match.matrix$control_id,]$subj_id
-
-# Extract matched controls
-non_diabetic_matched <- lapply(non_diabetic_all, 
-                        function(df){
-                          df %>%
-                            filter(subj_id %in% matched_ids)
-                        })
-
-setwd(here::here())
-saveRDS(non_diabetic_matched, "data/processed_data/non_diabetic_matched.RDS")
-
-
-### Matching a not overweight group
-
-# inclusion criteria: 
-# - non-diabetic as indicated in prolific screener
-# - FINDRISC score < 7 (indicating low risk of diabetes)
-# no missing data on questionnaires
-
-# read in non-diabetics data
-non_diabetic_all <- readRDS("data/processed_data/non_diabetic_all.RDS")
-
-non_diabetic_all$demographics %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-non_diabetic_all$game %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-non_diabetic_all$game_meta %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-non_diabetic_all$modelling_data %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-non_diabetic_all$questionnaire %<>% 
-  rowwise() %>% 
-  mutate(subj_id = id_shuffle(subj_id)) 
-
-# Structure data 
-non_diabetic_all$demographics %<>% 
-  left_join(non_diabetic_all$questionnaire %>% 
-              select(subj_id, bmi_response_1:bmi_result, findrisc_sumScore)) %>% 
-  rename(bmi = bmi_result) %>% 
-  # BMI restricted to 18.5 - 25
-  filter(bmi >= 18.5 & bmi <= 24.9) %>% 
-  filter(findrisc_sumScore < 7) %>% 
-  # exclude participants that are in the other non diabetic group
-  filter(!subj_id %in% matched_ids)
-
-non_diabetic_all <- list(demographic_data = non_diabetic_all$demographics, 
-                         task_meta_data = non_diabetic_all$game_meta %>% filter(subj_id %in% non_diabetic_all$demographics$subj_id), 
-                         task_data = non_diabetic_all$game %>% filter(subj_id %in% non_diabetic_all$demographics$subj_id),  
-                         questionnaire_data = non_diabetic_all$questionnaire %>% filter(subj_id %in% non_diabetic_all$demographics$subj_id))
-
-match_data <- bind_rows(
-  data$demographic_data %>% 
-    filter(group == "treatment") %>% 
-    select(subj_id, group, age, gender, bmi) %>%
-    left_join(data$questionnaire_data %>% 
-                filter(group == "treatment", session == 1) %>% 
-                select(subj_id, ipaq_sumScore)), 
-  
-  non_diabetic_all$demographic_data %>% 
-    select(subj_id, age, gender, bmi) %>%
-    left_join(non_diabetic_all$questionnaire_data %>% 
-                select(subj_id, ipaq_sumScore)) %>% 
-    add_column(group = "non_diabetic_normal_weight_controls", 
-               .after = "subj_id")
-) %>% 
-  na.omit %>% 
-  mutate(group = case_when(group == "treatment" ~ 1,
-                           group == "non_diabetic_normal_weight_controls" ~ 0))
-
-# matching
-non_diabetic_normal_weight_matches <- matchit(group ~ age + gender + ipaq_sumScore, data = match_data,
-                                method = "nearest", distance = "glm", link = "probit")
-summary(non_diabetic_normal_weight_matches, un = FALSE)
-
-# Matches
-non_diabetic_normal_weight_matches$match.matrix %<>% 
-  .[,1] %>% 
-  enframe(name = "treatment_id", value = "control_id") 
-
-matched_ids <- match_data[non_diabetic_normal_weight_matches$match.matrix$control_id,]$subj_id
-
-# Extract matched controls
-non_diabetic_normal_weight_matched <- lapply(non_diabetic_all, 
-                                             function(df){
-                                               df %>%
-                                                 filter(subj_id %in% matched_ids)
-                                             })
-
-setwd(here::here())
-saveRDS(non_diabetic_normal_weight_matched, "data/processed_data/non_diabetic_normal_weight_matched.RDS")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+non_diabetic_data <- readRDS("github/semaglutide-study/data/raw_data/non_diabetic_groups/non_diabetic_matched.RDS")
+non_diabetic_normal_weight_data <- readRDS("github/semaglutide-study/data/raw_data/non_diabetic_groups/non_diabetic_normal_weight_matched.RDS")
