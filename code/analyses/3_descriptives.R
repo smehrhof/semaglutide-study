@@ -16,9 +16,9 @@ setwd(here::here())
 source("github/semaglutide-study/code/functions/helper_funs.R")
 
 # source datasets
-main_data <- readRDS("data/processed_data/main_data.RDS")
-non_diabetic_data <- readRDS("data/processed_data/non_diabetic_matched.RDS")
-non_diabetic_normal_weight_data <- readRDS("data/processed_data/non_diabetic_normal_weight_matched.RDS")
+main_data <- readRDS("github/semaglutide-study/data/processed_data/main_data.RDS")
+non_diabetic_data_new <- readRDS("github/semaglutide-study/data/processed_data/non_diabetic_matched.RDS")
+non_diabetic_normal_weight_data_new <- readRDS("github/semaglutide-study/data/processed_data/non_diabetic_normal_weight_matched.RDS")
 
 
 # load required packages
@@ -45,7 +45,7 @@ non_diabetic_data$demographic_data
 
 all_demographics <- bind_rows(
   main_data$demographic_data %>% 
-    select(subj_id, group, age, gender, ses, bmi, psych_neurdev, psych_neurdev_condition, 
+    select(subj_id, group, age, gender, ethnicity, ses, bmi, psych_neurdev, psych_neurdev_condition, 
            psych_neurdev_condition_other, antidepressant, antidepressant_type, antidepressant_type_other, 
            chronic_disease, chronic_disease_condition, chronic_disease_condition_other),
   non_diabetic_data$demographic_data %>% 
@@ -268,6 +268,38 @@ anova(lme(mean_choice ~ reward, random= ~1|subj_id,
 ### Non-diabetics
 # Mixed-effects ANOVA
 choice_data <- non_diabetic_data$task_data %>% 
+  filter(phase == "game") %>%
+  group_by(subj_id, offerEffort, offerReward) %>% 
+  summarize(mean_choice = mean(choice))
+
+anova(lme(mean_choice ~ offerEffort * offerReward, random= ~1|subj_id, 
+          data = choice_data))
+
+# Post hoc anovas
+# per reward level
+anova(lme(mean_choice ~ offerEffort, random= ~1|subj_id, 
+          data = choice_data %>% filter(offerReward == 1)))
+anova(lme(mean_choice ~ offerEffort, random= ~1|subj_id, 
+          data = choice_data %>% filter(offerReward == 2)))
+anova(lme(mean_choice ~ offerEffort, random= ~1|subj_id, 
+          data = choice_data %>% filter(offerReward == 3)))
+anova(lme(mean_choice ~ offerEffort, random= ~1|subj_id, 
+          data = choice_data %>% filter(offerReward == 4)))
+
+# per effort level
+anova(lme(mean_choice ~ offerReward, random= ~1|subj_id, 
+          data = choice_data %>% filter(offerEffort == 1)))
+anova(lme(mean_choice ~ offerReward, random= ~1|subj_id, 
+          data = choice_data %>% filter(offerEffort == 2)))
+anova(lme(mean_choice ~ offerReward, random= ~1|subj_id, 
+          data = choice_data %>% filter(offerEffort == 3)))
+anova(lme(mean_choice ~ offerReward, random= ~1|subj_id, 
+          data = choice_data %>% filter(offerEffort == 4)))
+
+
+### Non-diabetics, low BMI
+# Mixed-effects ANOVA
+choice_data <- non_diabetic_normal_weight_data$task_data %>% 
   filter(phase == "game") %>%
   group_by(subj_id, offerEffort, offerReward) %>% 
   summarize(mean_choice = mean(choice))
