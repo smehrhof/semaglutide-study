@@ -132,7 +132,7 @@ raincloud_plot <- function(dat, title, xlab, ylab,
   if(include_grouping == FALSE){
     rain_plot <- ggplot(data = dat, 
                         aes_string(y = outcome_var, x = predictor_var, fill = predictor_var)) + 
-      geom_flat_violin(position = position_nudge(x = 0.2, y = 0), alpha = 0.6, trim = FALSE, color = NA, bw = 0.1) +
+      geom_flat_violin(position = position_nudge(x = 0.2, y = 0), alpha = 0.6, trim = FALSE, color = NA) +
       geom_point(aes_string(y = outcome_var, color = predictor_var), position = position_jitter(width = 0.15, height = 0.025), 
                  size = 0.75, alpha = 0.6) +
       geom_boxplot(width = 0.2, outlier.shape = NA, alpha = 0.5, position = position_nudge(x=.2)) + 
@@ -222,6 +222,8 @@ cum_plot <- function(dat, var_labels, title,
 ppc_plots <- function(ppc_dat, 
                       group_plot = TRUE,
                       indiv_plot = TRUE, 
+                      indiv_effort = TRUE, 
+                      indiv_reward = TRUE,
                       group_plot_title = "Observed vs. model predicted acceptance proportions",
                       indiv_plot_title = "Subject wise observed vs. model predicted acceptance proportions "){
   
@@ -330,7 +332,10 @@ ppc_plots <- function(ppc_dat,
             axis.text.x = element_text(size = 10),
             axis.text.y = element_text(size = 10),
             legend.title = element_text(size = 10),
-            legend.text = element_text(size = 10)) 
+            legend.text = element_text(size = 10)) +
+      theme(panel.background = element_blank(), axis.line.x = element_blank()) +
+      annotate(geom = "segment", y = 0, yend = 1, x = -Inf, xend = -Inf) +
+      annotate(geom = "segment", y = -Inf, yend = -Inf, x = 0, xend = 1)
     
     # plot by reward level
     indiv_plot_reward_dat <- ppc_dat$posterior_predictions_reward
@@ -353,14 +358,23 @@ ppc_plots <- function(ppc_dat,
             axis.text.x = element_text(size = 10),
             axis.text.y = element_text(size = 10),
             legend.title = element_text(size = 10),
-            legend.text = element_text(size = 10)) 
+            legend.text = element_text(size = 10)) +
+      theme(panel.background = element_blank(), axis.line.x = element_blank()) +
+      annotate(geom = "segment", y = 0, yend = 1, x = -Inf, xend = -Inf) +
+      annotate(geom = "segment", y = -Inf, yend = -Inf, x = 0, xend = 1) 
     
     
-    indiv_plot <- ggarrange(indiv_plot_effort,
-                            indiv_plot_reward,
-                            ncol = 2, nrow = 1,
-                            common.legend = TRUE,
-                            legend="bottom")
+    if(indiv_effort == TRUE & indiv_reward == TRUE){
+      indiv_plot <- ggarrange(indiv_plot_effort,
+                              indiv_plot_reward,
+                              ncol = 2, nrow = 1,
+                              common.legend = TRUE,
+                              legend="bottom") 
+    } else if (indiv_effort == TRUE & indiv_reward == FALSE){
+      indiv_plot <- indiv_plot_effort
+    } else if (indiv_effort == FALSE & indiv_reward == TRUE){
+      indiv_plot <- indiv_plot_reward
+    }
     
     indiv_plot <- annotate_figure(indiv_plot, 
                                   top = text_grob(indiv_plot_title, 
