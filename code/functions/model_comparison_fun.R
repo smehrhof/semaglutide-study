@@ -56,7 +56,8 @@ model_comparison <- function(model_paths = NULL,
       geom_errorbar(aes(ymin=loo-loo_sd, ymax=loo+loo_sd), width=.2,
                     position=position_dodge(.9)) +
       #geom_text(aes(label = round(loo)), position = position_dodge(0.9), hjust=1.5, size = 3) +
-      ylab("Leave-one-out information criterion (± SE)") + xlab("Model") +
+      ylab("LOOIC (± SE)") + xlab("Model") +
+      scale_y_continuous(breaks=(c(0, 4000)), limits = c(0, 4000)) +
       ggtitle(LOO_title) +
       coord_flip() +
       theme(legend.position = "none", 
