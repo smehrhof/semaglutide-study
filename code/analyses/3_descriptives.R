@@ -17,8 +17,8 @@ source("github/semaglutide-study/code/functions/helper_funs.R")
 
 # source datasets
 main_data <- readRDS("github/semaglutide-study/data/processed_data/main_data.RDS")
-non_diabetic_data_new <- readRDS("github/semaglutide-study/data/processed_data/non_diabetic_matched.RDS")
-non_diabetic_normal_weight_data_new <- readRDS("github/semaglutide-study/data/processed_data/non_diabetic_normal_weight_matched.RDS")
+non_diabetic_data <- readRDS("github/semaglutide-study/data/processed_data/non_diabetic_matched.RDS")
+non_diabetic_normal_weight_data <- readRDS("github/semaglutide-study/data/processed_data/non_diabetic_normal_weight_matched.RDS")
 
 
 # load required packages
